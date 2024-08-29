@@ -63,9 +63,23 @@
             margin-bottom: 10px; /* Espaçamento abaixo dos campos */
             width: calc(100% - 22px); /* Ajustar largura com base no padding e border */
         }
+
+        #games-section {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #game-list {
+            margin-top: 10px;
+        }
+
+        .game {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
     </style>
-
-
 </head>
 
 <body>
@@ -92,6 +106,12 @@
         <button onclick="sendMessage()">Send Message</button>
     </div>
 
+    <!-- Seção para criar e entrar em partidas -->
+    <div id="games-section">
+        <button id="create-game">Criar Partida</button>
+        <div id="game-list"></div>
+    </div>
+
     <script>
         const ws = new WebSocket('ws://localhost:8080');
         let loggedIn = false;
@@ -100,6 +120,7 @@
             const data = JSON.parse(event.data);
             const messagesDiv = document.getElementById('messages');
             const chatDiv = document.getElementById('chat');
+            const gameListDiv = document.getElementById('game-list');
 
             switch (data.type) {
                 case 'register_success':
@@ -114,12 +135,50 @@
                     document.getElementById('login-register').style.display = 'none';
                     document.getElementById('login-register-bt').style.display = 'none';
                     document.getElementById('message-section').style.display = 'block';
+                    document.getElementById('games-section').style.display = 'block';
                     break;
                 case 'login_failed':
                     messagesDiv.innerHTML += `<p>Login falhou: ${data.message}</p>`;
                     break;
                 case 'new_message':
                     chatDiv.innerHTML += `<p><strong>${data.username}:</strong> ${data.message}</p>`;
+                    break;
+                case 'game_created':
+                    gameListDiv.innerHTML += `<div class="game">
+                        <p><strong>Partida ID:</strong> ${data.game.id}</p>
+                        <p><strong>Status:</strong> ${data.game.status}</p>
+                        <p><strong>Jogadores:</strong> ${data.game.players.join(', ')}</p>
+                        ${data.game.players.includes(document.getElementById('username').value) 
+                            ? '<p>Você está nessa partida!</p>' +
+                            `<button onclick="leaveGame('${data.game.id}')">Sair</button>`
+                            : `<button onclick="joinGame('${data.game.id}')">Entrar</button>`}
+                    </div>`;
+                    break;
+                case 'game_list':
+                    gameListDiv.innerHTML = '';
+                    data.games.forEach(game => {
+                        gameListDiv.innerHTML += `<div class="game">
+                            <p><strong>Partida ID:</strong> ${game.id}</p>
+                            <p><strong>Status:</strong> ${game.status}</p>
+                            <p><strong>Jogadores:</strong> ${game.players.join(', ')}</p>
+                            ${game.players.includes(document.getElementById('username').value) 
+                                ? '<p>Você está nessa partida!</p>' +
+                                `<button onclick="leaveGame('${game.id}')">Sair</button>`
+                                : `<button onclick="joinGame('${game.id}')">Entrar</button>`}
+                        </div>`;
+                    });
+                    break;
+
+                case 'game_joined':
+                    messagesDiv.innerHTML += '<p>Você entrou na partida com sucesso!</p>';
+                    break;
+
+                case 'game_left':
+                    messagesDiv.innerHTML += '<p>Você saiu da partida com sucesso!</p>';
+                    break;
+
+                case 'game_ended':
+                    messagesDiv.innerHTML += '<p>Partida encerrada. Você voltou ao lobby.</p>';
                     break;
                 // Outras funcionalidades...
             }
@@ -158,6 +217,45 @@
             }
         }
 
+        function createGame() {
+            if (loggedIn) {
+                ws.send(JSON.stringify({
+                    type: 'create_game',
+                    username: document.getElementById('username').value
+                }));
+                
+                document.getElementById('create-game').style.display = 'none';
+                document.getElementById('message-section').style.display = 'none';
+            }
+        }
+
+        function joinGame(gameId) {
+            if (loggedIn) {
+                ws.send(JSON.stringify({
+                    type: 'join_game',
+                    username: document.getElementById('username').value,
+                    gameId: gameId
+                }));
+
+                document.getElementById('create-game').style.display = 'none';
+                document.getElementById('message-section').style.display = 'none';
+            }
+        }
+
+        function leaveGame(gameId) {
+            if (loggedIn) {
+                ws.send(JSON.stringify({
+                    type: 'leave_game',
+                    username: document.getElementById('username').value,
+                    gameId: gameId
+                }));
+
+                document.getElementById('create-game').style.display = 'block';
+                document.getElementById('message-section').style.display = 'block';
+            }
+        }
+
+
         // Mostrar/esconder o campo de email dependendo da escolha do usuário
         function toggleEmailField(show) {
             const emailField = document.getElementById('email');
@@ -187,6 +285,8 @@
             document.getElementById('login-submit').style.display = 'block';
             document.getElementById('register-submit').style.display = 'none';
         });
+
+        document.getElementById('create-game').addEventListener('click', createGame);
     </script>
 </body>
 

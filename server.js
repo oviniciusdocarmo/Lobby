@@ -11,6 +11,16 @@ if (fs.existsSync(usersFilePath)) {
     users = JSON.parse(rawData);
 }
 
+const gamesFilePath = './games.json';
+let games = [];
+if (fs.existsSync(gamesFilePath)) {
+    const rawData = fs.readFileSync(gamesFilePath);
+    games = JSON.parse(rawData);
+}
+
+const minPlayers = 2; // Configurável
+const maxPlayers = 4; // Configurável
+
 const wss = new WebSocket.Server({ port: 8080 });
 
 wss.on('connection', (ws) => {
@@ -60,25 +70,47 @@ wss.on('connection', (ws) => {
                 const gameCreator = users.find(user => user.username === data.username);
                 if (gameCreator) {
                     gameCreator.inGame = true;
-                    saveUsersToFile(users);  // Atualiza o status do usuário
+                    saveUsersToFile(users);
                     const newGame = {
                         id: Math.random().toString(36).substr(2, 9),
+                        creator: data.username,
                         players: [data.username],
                         status: 'created',
                     };
-                    ws.send(JSON.stringify({ type: 'game_created', game: newGame }));
+                    games.push(newGame);
+                    saveGamesToFile(games);
+                    broadcast({ type: 'game_created', game: newGame });
                 }
                 break;
 
             case 'join_game':
-                // Lógica para entrar em uma partida existente
-                const player = users.find(user => user.username === data.username);
-                if (player) {
-                    player.inGame = true;
-                    saveUsersToFile(users);  // Atualiza o status do usuário
+                const game = games.find(game => game.id === data.gameId);
+                
+                if (game && game.players.length < maxPlayers) {
+                    game.players.push(data.username);
+                    saveGamesToFile(games);
                     ws.send(JSON.stringify({ type: 'game_joined' }));
+                    broadcast({ type: 'game_list', games: games });
                 }
                 break;
+
+            case 'leave_game':
+                const leavingGame = games.find(game => game.id === data.gameId);
+                if (leavingGame) {
+                    leavingGame.players = leavingGame.players.filter(player => player !== data.username);
+                    const user = users.find(user => user.username === data.username);
+                    if (user) user.inGame = false;
+                    saveUsersToFile(users);
+                    saveGamesToFile(games);
+                    
+                    // Notificar o cliente que saiu
+                    ws.send(JSON.stringify({ type: 'game_left' }));
+            
+                    // Atualizar a lista de partidas para todos
+                    broadcast({ type: 'game_list', games: games });
+                }
+                break;
+            
 
             case 'send_message':
                 // Enviar mensagem para todos os usuários no lobby, exceto aqueles que estão em uma partida
@@ -95,25 +127,59 @@ wss.on('connection', (ws) => {
                 break;
 
             case 'end_game':
-                // Finalizar a partida e colocar o usuário de volta no lobby
-                const endingPlayer = users.find(user => user.username === data.username);
-                if (endingPlayer) {
-                    endingPlayer.inGame = false;
-                    saveUsersToFile(users);  // Atualiza o status do usuário
-                    ws.send(JSON.stringify({ type: 'game_ended' }));
+                const endingGame = games.find(game => game.players.includes(data.username));
+                if (endingGame) {
+                    endingGame.players.forEach(username => {
+                        const user = users.find(user => user.username === username);
+                        if (user) user.inGame = false;
+                    });
+                    games = games.filter(game => game.id !== endingGame.id);
+                    saveUsersToFile(users);  // Atualiza o status dos usuários
+                    saveGamesToFile(games);  // Remove a partida do arquivo
+
+                    // Notificar todos os clientes sobre o fim da partida
+                    broadcast({ type: 'game_ended' });
                 }
                 break;
 
             // Outras funcionalidades...
+
         }
     });
 
     ws.on('close', () => {
-        // Implementar lógica de remoção de usuário se necessário
+        // remover usuário da lista de usuários conectados
+        const user = users.find(user => user.username === ws.username);
+        if (user) user.inGame = false;
+        saveUsersToFile(users);
+        // remover usuário da lista de jogadores da partida
+        const game = games.find(game => game.players.includes(ws.username));
+        if (game) {
+            game.players = game.players.filter(username => username !== ws.username);
+            if (game.players.length === 0) {
+                games = games.filter(g => g.id !== game.id);
+            }
+            saveGamesToFile(games);
+            broadcast({ type: 'game_list', games: games });
+        }
     });
 });
 
 // Função para salvar usuários no arquivo JSON
 function saveUsersToFile(users) {
     fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+}
+
+// Função para salvar partidas no arquivo JSON
+function saveGamesToFile(games) {
+    fs.writeFileSync(gamesFilePath, JSON.stringify(games, null, 2));
+}
+
+// Função para transmitir dados para todos os clientes conectados
+function broadcast(data) {
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(data));
+        }
+    });
 }
