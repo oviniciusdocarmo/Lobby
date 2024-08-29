@@ -163,12 +163,14 @@
                             <p><strong>Jogadores:</strong> ${game.players.join(', ')}</p>
                             ${game.players.includes(document.getElementById('username').value) 
                                 ? '<p>Você está nessa partida!</p>' +
+                                (game.creator === document.getElementById('username').value && game.players.length >= 2 && game.status === 'created'
+                                    ? `<button onclick="startGame('${game.id}')">Iniciar Jogo</button>`
+                                    : '') +
                                 `<button onclick="leaveGame('${game.id}')">Sair</button>`
-                                : `<button onclick="joinGame('${game.id}')">Entrar</button>`}
+                                : (game.status !== 'iniciada' ? `<button onclick="joinGame('${game.id}')">Entrar</button>` : '')}
                         </div>`;
                     });
                     break;
-
                 case 'game_joined':
                     messagesDiv.innerHTML += '<p>Você entrou na partida com sucesso!</p>';
                     break;
@@ -255,6 +257,15 @@
             }
         }
 
+        function startGame(gameId) {
+            if (loggedIn) {
+                ws.send(JSON.stringify({
+                    type: 'start_game',
+                    username: document.getElementById('username').value,
+                    gameId: gameId
+                }));
+            }
+        }
 
         // Mostrar/esconder o campo de email dependendo da escolha do usuário
         function toggleEmailField(show) {

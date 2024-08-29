@@ -2,17 +2,17 @@
   {
     "username": "aaa",
     "email": "a@a.com",
-    "password": "123",
+    "password": "aaa",
     "inGame": false
   },
   {
-    "username": "oviniciusdocarmo",
+    "username": "vini",
     "email": "t@t.com",
-    "password": "123",
+    "password": "aaa",
     "inGame": false
   },
   {
-    "username": "vinicius",
+    "username": "jose",
     "email": "a@t.com",
     "password": "aaa",
     "inGame": false
@@ -20,7 +20,7 @@
   {
     "username": "teste",
     "email": "tt@t.com",
-    "password": "123",
+    "password": "aaa",
     "inGame": false
   }
 ]

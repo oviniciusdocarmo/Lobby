@@ -110,7 +110,18 @@ wss.on('connection', (ws) => {
                     broadcast({ type: 'game_list', games: games });
                 }
                 break;
+                
+            case 'start_game':
+                const gameToStart = games.find(game => game.id === data.gameId);
             
+                if (gameToStart && gameToStart.creator === data.username && gameToStart.players.length >= 2) {
+                    gameToStart.status = 'iniciada';
+                    saveGamesToFile(games);
+
+                    // Notificar todos os clientes que a partida foi iniciada
+                    broadcast({ type: 'game_list', games: games });
+                }
+                break;                
 
             case 'send_message':
                 // Enviar mensagem para todos os usuários no lobby, exceto aqueles que estão em uma partida
