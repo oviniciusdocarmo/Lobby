@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lobby</title>
+    <style>
+        #login-register,
+        #message-section {
+            margin-top: 20px; /* Espaçamento acima */
+        }
+
+        #message-section {
+            display: none; /* Oculto até o usuário fazer login */
+            background-color: #f8f9fa; /* Cor de fundo suave */
+            border-radius: 8px; /* Bordas arredondadas */
+            padding: 20px; /* Espaçamento interno */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra suave */
+            max-width: 600px; /* Largura máxima */
+            margin: 20px auto; /* Centralizar horizontalmente */
+        }
+
+        #message {
+            width: calc(100% - 110px); /* Largura ajustada para dar espaço ao botão */
+            padding: 10px; /* Espaçamento interno */
+            border-radius: 8px; /* Bordas arredondadas */
+            border: 1px solid #ccc; /* Borda suave */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra suave */
+            font-size: 16px; /* Tamanho da fonte */
+            margin-right: 10px; /* Espaçamento à direita */
+            box-sizing: border-box; /* Inclui padding e border na largura total */
+        }
+
+        button {
+            padding: 10px 20px; /* Espaçamento interno do botão */
+            border-radius: 8px; /* Bordas arredondadas */
+            border: none; /* Sem borda */
+            background-color: #007bff; /* Cor de fundo do botão */
+            color: white; /* Cor do texto do botão */
+            font-size: 16px; /* Tamanho da fonte */
+            cursor: pointer; /* Cursor de ponteiro */
+            transition: background-color 0.3s; /* Transição suave para a cor de fundo */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra suave */
+        }
+
+        button:hover {
+            background-color: #0056b3; /* Cor de fundo do botão ao passar o mouse */
+        }
+
+        #chat {
+            border: 1px solid #ddd; /* Borda suave */
+            padding: 10px; /* Espaçamento interno */
+            height: 300px; /* Altura fixa */
+            overflow-y: scroll; /* Rolagem vertical */
+            margin-bottom: 10px; /* Espaçamento abaixo */
+        }
+
+        #login-register input {
+            padding: 10px; /* Espaçamento interno */
+            border-radius: 8px; /* Bordas arredondadas */
+            border: 1px solid #ccc; /* Borda suave */
+            margin-bottom: 10px; /* Espaçamento abaixo dos campos */
+            width: calc(100% - 22px); /* Ajustar largura com base no padding e border */
+        }
+    </style>
+
+
+</head>
+
+<body>
+    <h1>Lobby</h1>
+    <div id="login-register-bt">
+        <button id="register-option" style="background-color: #5f5c5b;">Registrar</button>
+        <button id="login-option" style="background-color: #5f5c5b;">Entrar</button>
+    </div>
+    <div id="messages"></div>
+
+    <!-- Seção para escolher entre login e registro -->
+    <div id="login-register" style="display: none;">
+        <input type="text" id="username" placeholder="Username">
+        <input type="email" id="email" placeholder="Email" style="display:none;"> <!-- Escondido inicialmente -->
+        <input type="password" id="password" placeholder="Password">
+        <button id="register-submit" onclick="chooseAction('register')" style="display:none;">Enviar</button>
+        <button id="login-submit" onclick="chooseAction('login')" style="display:none;">Enviar</button>
+    </div>
+
+    <!-- Seção de mensagens só visível após o login -->
+    <div id="message-section">
+        <div id="chat"></div>
+        <input type="text" id="message" placeholder="Message"><br></br>
+        <button onclick="sendMessage()">Send Message</button>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8080');
+        let loggedIn = false;
+
+        ws.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            const messagesDiv = document.getElementById('messages');
+            const chatDiv = document.getElementById('chat');
+
+            switch (data.type) {
+                case 'register_success':
+                    messagesDiv.innerHTML += '<p>Registro realizado com sucesso!</p>';
+                    break;
+                case 'register_failed':
+                    messagesDiv.innerHTML += `<p>Registro falhou: ${data.message}</p>`;
+                    break;
+                case 'login_success':
+                    messagesDiv.innerHTML += '<p>Login realizado com sucesso!</p>';
+                    loggedIn = true;
+                    document.getElementById('login-register').style.display = 'none';
+                    document.getElementById('login-register-bt').style.display = 'none';
+                    document.getElementById('message-section').style.display = 'block';
+                    break;
+                case 'login_failed':
+                    messagesDiv.innerHTML += `<p>Login falhou: ${data.message}</p>`;
+                    break;
+                case 'new_message':
+                    chatDiv.innerHTML += `<p><strong>${data.username}:</strong> ${data.message}</p>`;
+                    break;
+                // Outras funcionalidades...
+            }
+        };
+
+        function chooseAction(action) {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const email = document.getElementById('email').value;
+
+            if (action === 'register') {
+                ws.send(JSON.stringify({
+                    type: 'register',
+                    username: username,
+                    email: email,
+                    password: password
+                }));
+            } else if (action === 'login') {
+                ws.send(JSON.stringify({
+                    type: 'login',
+                    username: username,
+                    password: password
+                }));
+            }
+        }
+
+        function sendMessage() {
+            if (loggedIn) {
+                const message = document.getElementById('message').value;
+
+                ws.send(JSON.stringify({
+                    type: 'send_message',
+                    username: document.getElementById('username').value,
+                    message: message
+                }));
+            }
+        }
+
+        // Mostrar/esconder o campo de email dependendo da escolha do usuário
+        function toggleEmailField(show) {
+            const emailField = document.getElementById('email');
+            if (show) {
+                emailField.style.display = 'block';
+            } else {
+                emailField.style.display = 'none';
+            }
+        }
+
+        // Muda a visibilidade do campo de email ao clicar no botão de registro
+        document.getElementById('register-option').addEventListener('click', function () {
+            toggleEmailField(true);
+            document.getElementById('register-option').style.display = 'none';
+            document.getElementById('login-option').style.display = 'block';
+            document.getElementById('login-register').style.display = 'block';
+            document.getElementById('register-submit').style.display = 'block';
+            document.getElementById('login-submit').style.display = 'none';
+        });
+
+        // Esconde o campo de email ao clicar no botão de login
+        document.getElementById('login-option').addEventListener('click', function () {
+            toggleEmailField(false);
+            document.getElementById('login-option').style.display = 'none';
+            document.getElementById('register-option').style.display = 'block';
+            document.getElementById('login-register').style.display = 'block';
+            document.getElementById('login-submit').style.display = 'block';
+            document.getElementById('register-submit').style.display = 'none';
+        });
+    </script>
+</body>
+
+</html>

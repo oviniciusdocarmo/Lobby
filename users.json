@@ -1,0 +1,26 @@
+[
+  {
+    "username": "aaa",
+    "email": "a@a.com",
+    "password": "123",
+    "inGame": false
+  },
+  {
+    "username": "oviniciusdocarmo",
+    "email": "t@t.com",
+    "password": "123",
+    "inGame": false
+  },
+  {
+    "username": "vinicius",
+    "email": "a@t.com",
+    "password": "aaa",
+    "inGame": false
+  },
+  {
+    "username": "teste",
+    "email": "tt@t.com",
+    "password": "123",
+    "inGame": false
+  }
+]
